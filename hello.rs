@@ -2,6 +2,7 @@ use std::f64;
 
 struct Neuron {
     weights: Vec<f64>,
+    value: f64
 }
 
 struct Entry {
@@ -38,23 +39,23 @@ fn main() {
         },
     ];
 
-    let layers = vec![
+    let mut layers = vec![
         vec![
-            Neuron { weights: vec![0.0, 1.0, 1.0] },
-            Neuron { weights: vec![0.0, 1.0, 1.0] },
+            Neuron { weights: vec![0.0, 1.0, 1.0], value: 0.0 },
+            Neuron { weights: vec![0.0, 1.0, 1.0], value: 0.0 },
         ],
         vec![
-            Neuron { weights: vec![0.0, 1.0, 1.0] },
+            Neuron { weights: vec![0.0, 1.0, 1.0], value: 0.0 },
         ],
     ];
 
     let input = vec![0.25, 0.25];
-    let output = forward(input, &layers);
+    forward(&input, &mut layers);
 
     println!("output");
-    for v in output {
-        println!("{}", v);
-    }
+    //for neuron in layers[1] {
+        //println!("{}", neuron.value);
+    //}
 }
 
 // dE/dw_l = sum(delta_i * ) *
@@ -73,18 +74,27 @@ fn main() {
 // dE/do_i = o_i - t
 // E = (1/2)sum((t - o_i)^2)
 
-fn forward(input: Vec<f64>, layers: &Vec<Vec<Neuron>>) -> Vec<f64> {
-    layers.iter().fold(input, forward_layer)
+fn forward(input: &Vec<f64>, layers: &mut Vec<Vec<Neuron>>) {
+    //layers.iter().fold(input, forward_layer)
+    let mut current = input;
+    for layer in layers {
+        forward_layer(current, layer);
+        current = &Vec::new();
+        for neuron in layer {
+            current.push(neuron.value)
+        }
+    }
 }
 
-fn forward_layer(input: Vec<f64>, layer: &Vec<Neuron>) -> Vec<f64> {
-    layer.iter().map(|neuron| {
-        sigmoid(
+fn forward_layer(input: &Vec<f64>, layer: &mut Vec<Neuron>) {
+    for neuron in layer {
+        neuron.value = sigmoid(
             neuron.weights.iter()
                 .skip(1)
-                .zip(&input)
-                .fold(neuron.weights[0], |acc, (weight, i)| weight.mul_add(*i, acc))
-        )
-    }).collect()
+                .zip(input)
+                .fold(
+                    neuron.weights[0],
+                    |acc, (weight, i)| weight.mul_add(*i, acc)));
+    }
 }
 
