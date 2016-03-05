@@ -1,13 +1,40 @@
 use std::f64;
+use std::iter;
 
 struct Neuron {
     weights: Vec<f64>,
-    value: f64
+    new_weights: Vec<f64>,
+    output: f64,
+    delta: f64,
+}
+
+impl Neuron {
+    fn new(weights : Vec<f64>) -> Neuron {
+        Neuron { weights: weights, new_weights: vec![], output: 0.0, delta: 0.0 }
+    }
+
+    fn compute_new_weights(&self, learningRate : f64) {
+    }
+}
+
+struct Layer {
+    inputs: Vec<f64>,
+    neurons: Vec<Neuron>,
+}
+
+impl Layer {
+    fn new(neurons: Vec<Neuron>) -> Layer {
+        Layer { neurons: neurons, inputs: vec![] }
+    }
+
+    fn outputs(&self) -> Vec<f64> {
+        self.neurons.iter().map(|neuron| neuron.output).collect()
+    }
 }
 
 struct Entry {
     inputs: Vec<f64>,
-    outputs: Vec<f64>
+    outputs: Vec<f64>,
 }
 
 fn sigmoid(x: f64) -> f64 {
@@ -40,58 +67,68 @@ fn main() {
     ];
 
     let mut layers = vec![
-        vec![
-            Neuron { weights: vec![0.0, 1.0, 1.0], value: 0.0 },
-            Neuron { weights: vec![0.0, 1.0, 1.0], value: 0.0 },
-        ],
-        vec![
-            Neuron { weights: vec![0.0, 1.0, 1.0], value: 0.0 },
-        ],
+        Layer::new(vec![
+            Neuron::new(vec![0.0, 1.0, 1.0]),
+            Neuron::new(vec![0.0, 1.0, 1.0]),
+        ]),
+        Layer::new(vec![
+            Neuron::new(vec![0.0, 1.0, 1.0]),
+        ]),
     ];
 
-    let input = vec![0.25, 0.25];
-    forward(&input, &mut layers);
+    for entry in training {
+        forward(&entry.inputs, &mut layers);
+        backward(-0.001, &entry, &mut layers);
+    }
 
     println!("output");
-    //for neuron in layers[1] {
-        //println!("{}", neuron.value);
-    //}
 }
 
-// dE/dw_l = sum(delta_i * ) *
+fn backward(learningRate : f64, entry: &Entry, layers: &mut Vec<Layer>) {
+    let layer = (&layers[0].neurons).to_owned();
 
+    let outputs : Vec<f64> = layer.iter().map(|neuron| neuron.output).collect();
+    let dError_dOut : Vec<f64> = entry.outputs.iter()
+        .zip(&outputs)
+        .map(|(expected, actual)| actual - expected)
+        .collect();
+    let dOut_dNet : Vec<f64> = outputs.iter().map(|out| out * (1.0 - out)).collect();
+    let deltas : Vec<f64> = dOut_dNet.iter().zip(dError_dOut).map(|(dedo, dodn)| dedo * dodn).collect();
+    /*let newWeights : Vec<Vec<f64>> =
+        deltas.enumerate().map(|(i, delta)|
+            layer.weights.iter().skip(1).map(|weight|
 
-// dE/dw_j = delta_i * h_j
-// delta_i = (o_i - t) * o_i(1 - o_i)
+                ));
+                */
+}
 
-// dE/dw_j = (o_i - t) * o_i(1 - o_i) * h_j
-// dE/dw_j = dE/do_i + do_i/dn_i + dn_i/dw_j
+fn foo(learningRate : f64, nodeInputs : Vec<f64>, weights: Vec<f64>, output : f64, errorFromOutput : f64) -> (f64, Vec<f64>) {
+    let delta = errorFromOutput * output * (1.0 - output);
+    (0.0, vec![])
+}
 
-// dn_i/dw_j = h_j
-// n_i = W dot H
-// do_i/dn_i = o_i(1 - o_i)
-// o_i(n) = 1/(1+e^(-n_i))
-// dE/do_i = o_i - t
-// E = (1/2)sum((t - o_i)^2)
+fn compute_new_weights_for_node(delta : f64, learningRate : f64, nodeInputs : Vec<f64>, weights: Vec<f64>) -> Vec<f64> {
+    iter::once(1.0).chain(weights)
+        .zip(nodeInputs)
+        .map(|(weight, nodeInput)| weight + learningRate * delta * nodeInput)
+        .collect()
+}
 
-fn forward(input: &Vec<f64>, layers: &mut Vec<Vec<Neuron>>) {
-    //layers.iter().fold(input, forward_layer)
-    let mut current = input;
+fn forward(input: &Vec<f64>, layers: &mut Vec<Layer>) -> Vec<f64> {
+    let mut current = input.to_owned();
     for layer in layers {
-        forward_layer(current, layer);
-        current = &Vec::new();
-        for neuron in layer {
-            current.push(neuron.value)
-        }
+        forward_layer(current, &mut layer.neurons);
+        current = layer.outputs();
     }
+    current
 }
 
-fn forward_layer(input: &Vec<f64>, layer: &mut Vec<Neuron>) {
+fn forward_layer(input: Vec<f64>, layer: &mut Vec<Neuron>) {
     for neuron in layer {
-        neuron.value = sigmoid(
+        neuron.output = sigmoid(
             neuron.weights.iter()
                 .skip(1)
-                .zip(input)
+                .zip(&input)
                 .fold(
                     neuron.weights[0],
                     |acc, (weight, i)| weight.mul_add(*i, acc)));
